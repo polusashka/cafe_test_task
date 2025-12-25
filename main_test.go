@@ -54,87 +54,63 @@ func TestCafeWhenOk(t *testing.T) {
 func TestCafeCount(t *testing.T) {
 	handler := http.HandlerFunc(mainHandle)
 
-	type request struct {
-		adr   string
+	requests := []struct {
 		count int
 		want  int
-	}
-
-	var requests []request
-
-	testCount := []int{0, 1, 2, 100}
-	cafeTotal := len(cafeList["moscow"])
-
-	for _, v := range testCount {
-		newrequest := request{}
-		newrequest.adr = fmt.Sprintf("/cafe?count=%d&city=moscow", v)
-		newrequest.count = v
-		if v > cafeTotal {
-			newrequest.want = cafeTotal
-			requests = append(requests, newrequest)
-			continue
-		}
-		if v == 0 {
-			newrequest.want = 1
-			requests = append(requests, newrequest)
-			continue
-		}
-		newrequest.want = v
-		requests = append(requests, newrequest)
+	}{
+		{0, 0},
+		{1, 1},
+		{2, 2},
+		{100, len(cafeList["moscow"])},
 	}
 
 	for _, v := range requests {
 		response := httptest.NewRecorder()
-		req := httptest.NewRequest("GET", v.adr, nil)
+		req := httptest.NewRequest("GET", fmt.Sprintf("/cafe?count=%d&city=moscow", v.count), nil)
 
 		handler.ServeHTTP(response, req)
 		body := strings.TrimSpace(response.Body.String())
 
 		require.Equal(t, http.StatusOK, response.Code)
 
-		assert.Equal(t, v.want, len(strings.Split(body, ",")))
+		// Фильтрация пустых строк
+		empty := make([]string, 0)
+		if body == "" {
+			assert.Len(t, empty, v.want)
+			continue
+		}
+		assert.Len(t, strings.Split(body, ","), v.want)
 	}
 }
 
 func TestCafeSearch(t *testing.T) {
 	handler := http.HandlerFunc(mainHandle)
 
-	type request struct {
-		adr       string
+	requests := []struct {
 		search    string
 		wantCount int
-	}
-
-	testSearch := []string{"фасоль", "кофе", "вилка"}
-	moscowCafes := cafeList["moscow"]
-	var requests []request
-
-	for _, v := range testSearch {
-		newRequest := request{}
-		newRequest.adr = fmt.Sprintf("/cafe?search=%s&city=moscow", v)
-		newRequest.search = v
-		var found []string
-		for _, cafe := range moscowCafes {
-			if strings.Contains(strings.ToLower(cafe), strings.ToLower(v)) {
-				found = append(found, cafe)
-			}
-		}
-		newRequest.wantCount = len(found)
-		requests = append(requests, newRequest)
+	}{
+		{"фасоль", 0},
+		{"кофе", 2},
+		{"вилка", 1},
 	}
 
 	for _, v := range requests {
 		response := httptest.NewRecorder()
-		req := httptest.NewRequest("GET", v.adr, nil)
+		req := httptest.NewRequest("GET", fmt.Sprintf("/cafe?search=%s&city=moscow", v.search), nil)
 
 		handler.ServeHTTP(response, req)
+		body := strings.TrimSpace(strings.ToLower(response.Body.String()))
 
 		require.Equal(t, http.StatusOK, response.Code)
 
-		resCafes := strings.ToLower(response.Body.String())
-		if v.wantCount != 0 {
-			assert.True(t, strings.Contains(strings.ToLower(resCafes), strings.ToLower(v.search)))
+		empty := make([]string, 0)
+		if body == "" {
+			assert.Len(t, empty, v.wantCount)
+			continue
 		}
-		assert.Equal(t, v.wantCount, strings.Count(resCafes, v.search))
+
+		assert.Len(t, strings.Split(body, ","), v.wantCount)
+		assert.Contains(t, body, v.search)
 	}
 }
