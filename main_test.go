@@ -110,7 +110,12 @@ func TestCafeSearch(t *testing.T) {
 			continue
 		}
 
-		assert.Len(t, strings.Split(body, ","), v.wantCount)
-		assert.Contains(t, body, v.search)
+		cafes := strings.Split(body, ",")
+
+		assert.Len(t, cafes, v.wantCount)
+
+		for _, c := range cafes {
+			assert.Contains(t, c, v.search)
+		}
 	}
 }
